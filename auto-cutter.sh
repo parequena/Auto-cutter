@@ -42,6 +42,18 @@ function count_files()
 }
 
 ############################################################
+## Edits one video
+############################################################
+function edit_video()
+{
+   local in_file=$1
+   local out_file=$2
+
+   # Call auto-editor
+   auto-editor "${in_file}" -q -c:v hevc_nvenc -b:v 10M -b:a auto --no-open -o "${out_file}"  --margin 0.6s,0.7sec # --edit "(or audio:stream=0 audio:threshold=-6dB, audio:stream=1)"
+}
+
+############################################################
 ## Calls auto-editor in all files that k_in_path contains
 ############################################################
 function auto_edit()
@@ -85,9 +97,13 @@ function auto_edit()
       echo -e "File ${n_file} from ${k_file_count}"
 
       file_name="${file%.*}"
-      file_out="${file_name}_OUT.${file##*.}"
-      # Call auto-editor
-      auto-editor "${k_in_path}/${file}" -q -c:v hevc_nvenc -b:v 100M -b:a 10M --no-open -o "${k_out_path}/${file_out}"
+      file_ext="${file##*.}"
+
+
+
+      file_out="${file_name}_OUT.${file_ext}"
+      edit_video "${k_in_path}/${file}" "${k_out_path}/${file_out}"
+
    done
 
    return 0
