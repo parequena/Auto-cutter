@@ -39,6 +39,8 @@
 #     yt-dlp -f bv[ext=mp4]+ba[ext=mp4] <VIDEO_URL>
 # Download best audio in mp3
 #     yt-dlp -f ba[ext=mp4] -x --audio-format mp3 <VIDEO_URL>
+# Small video for testing
+#     https://www.youtube.com/watch?v=P38h4lQNJPQ
 
 # Imports
 import os
@@ -49,16 +51,20 @@ import auto_editor # Just checks if auto-editor is installed
 from pathlib import Path
 from subprocess import run
 
-############################################################
+##########################################################################################
 ## Variables
-############################################################
+##########################################################################################
 video_extensions = ["mkv", "mp4"] # Extend!
+default_folder="folder"
 out_string = "_out"
 ae_cmd = ["-q", "--no-open", "-c:v", "auto", "-b:v", "10M", "-b:a", "10M"]
+yt_cmd = ["-q", "-f", "bv[ext=mp4]+ba[ext=mp4]"]
 
-############################################################
-## Counts files in path
-############################################################
+##########################################################################################
+## Counts files in path with video_extensions extensions
+##
+## \return n_files : Number of files containing those extensions
+##########################################################################################
 def count_files(path):
    n_files = 0
 
@@ -67,9 +73,13 @@ def count_files(path):
 
    return n_files
 
-############################################################
-## Counts files in path
-############################################################
+
+
+##########################################################################################
+## Get's all files from path with video_extension extensions
+##
+## \return fileNames : List of file names containing those extensions
+##########################################################################################
 def get_fileNames(path):
    fileNames = []
 
@@ -81,43 +91,101 @@ def get_fileNames(path):
 
    return fileNames
 
-############################################################
-## Edits one video
-############################################################
-def edit_video(name, name_out):
+
+
+##########################################################################################
+## Creates a path if doen't exist
+##########################################################################################
+def create_path(path):
+   if not os.path.exists(path):
+      print("Creating directory: " + path)
+      os.makedirs(path)
+   
+   return 
+
+
+
+##########################################################################################
+## Calls a subprocess to call yt-dlp with some parameters
+##########################################################################################
+def call_yt_dlp(video, output_folder):
+   global yt_cmd
+   
+   create_path(output_folder)
+
+   # print("Calling: ", ["yt-dlp", video] + yt_cmd)
+   run(["yt-dlp", video] + yt_cmd, cwd=output_folder)
+
+   return
+
+
+
+##########################################################################################
+## Calls a subprocess to call auto-editor with some parameters
+##########################################################################################
+def call_auto_editor(name, name_out):
    global ae_cmd
 
    ae_cmd += ["-o", name_out]
 
-   print("Calling: ", ["auto-editor", name] + ae_cmd)
+   # print("Calling: ", ["auto-editor", name] + ae_cmd)
    run(["auto-editor", name] + ae_cmd)
 
    return
 
-############################################################
-## Calls auto-editor in all files from input file
-############################################################
-def auto_edit(input_folder, output_folder):
-   if not os.path.exists(output_folder):
-      print("Creating output directory: " + output_folder)
-      os.makedirs(output_folder)
+
+
+##########################################################################################
+## Gets input and output file names based on the original name
+##
+## \return in_file : Input file name (should be equal than original_name)
+## \return out_file : Output file name (should be same than in_file but with out_string
+##                    before extension)
+##########################################################################################
+def get_editor_file_names(original_name):
+   name, ext = os.path.splitext(original_name)
+   in_file = name + ext
+   out_file = name + out_string + ext
+
+   return in_file, out_file
+
+
+
+##########################################################################################
+## Calls auto-editor with only one file
+##########################################################################################
+def edit_video(fileName):
+   in_file, out_file = get_editor_file_names(fileName)
+   call_auto_editor(in_file, out_file)
+
+   return
+
+
+
+##########################################################################################
+## Iterates on a folder to call auto-editor with all files that contains that folder
+##########################################################################################
+def edit_folder(input_folder, output_folder):
+   create_path(output_folder)
    
    n_files = count_files(input_folder)
    print("There are " + str(n_files) + " in input folder: " + input_folder)
 
    fileNames = get_fileNames(input_folder)
    for file in fileNames:
-      file_path_in = input_folder + '/' + file
-      name, ext = os.path.splitext(file)
-      file_path_out = output_folder + '/' + name + out_string + ext
+      in_file, out_file = get_editor_file_names(file)
+      file_path_in = input_folder + '/' + in_file
+      file_path_out = output_folder + '/' + out_file
 
-      edit_video(file_path_in, file_path_out)
+      call_auto_editor(file_path_in, file_path_out)
    
    return
 
-############################################################
-## Main function
-############################################################
+
+
+##########################################################################################
+## TODO
+##########################################################################################
 def auto_editor_arg_parser(args):
    global ae_cmd
 
@@ -130,27 +198,41 @@ def auto_editor_arg_parser(args):
    
    return
 
-############################################################
+
+
+##########################################################################################
 ## Main function
-############################################################
+##########################################################################################
 def main():
    # Create argument parser
    parser = argparse.ArgumentParser(
       description="Auto cutter python script, used to call auto-editor in a folder."
-      , formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+      )
 
    # Create parameters
    parser.add_argument("video", nargs='?', help="Input video or playlist to edit/download", default=None)
-   parser.add_argument("-f", "--folder", nargs='?', help="Folder to work with", default="folder")
-   parser.add_argument("-ae", "--auto_editor_args", nargs='+', help="Arguments to pass to auto-editor.  Use quotes to group multiple arguments, e.g., '-q --no-open'", default=ae_cmd)
+   parser.add_argument("-f", "--folder", nargs='?', help="Folder to work with", default=None)
+   # parser.add_argument("-ae", "--auto_editor_args", nargs='+', help="Arguments to pass to auto-editor.  Use quotes to group multiple arguments, e.g., '-q --no-open'", default=ae_cmd)
 
    # Parse arguments
    args = parser.parse_args()
    input_folder = args.folder
+   if input_folder is None:
+      input_folder = default_folder
    output_folder = input_folder + out_string
-   auto_editor_arg_parser(args.auto_editor_args)
+   video = args.video
+   # auto_editor_arg_parser(args.auto_editor_args)
+
+   print("We currently support [" + ", ".join(video_extensions) + "] video extensions, skipping others!")
    
-   # auto_edit(input_folder=input_folder, output_folder=output_folder)
+   if video is not None:
+      if video.startswith(("https:", "http:", "www")):
+         call_yt_dlp(video, input_folder)
+         edit_folder(input_folder, output_folder)
+      else:
+         edit_video(video)
+   else:
+      edit_folder(input_folder, output_folder)
 
    return
 
