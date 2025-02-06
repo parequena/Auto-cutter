@@ -53,6 +53,8 @@ from subprocess import run
 ## Variables
 ############################################################
 video_extensions = ["mkv", "mp4"] # Extend!
+out_string = "_out"
+ae_cmd = ["-q", "--no-open", "-c:v", "auto", "-b:v", "10M", "-b:a", "10M"]
 
 ############################################################
 ## Counts files in path
@@ -66,21 +68,29 @@ def count_files(path):
    return n_files
 
 ############################################################
+## Counts files in path
+############################################################
+def get_fileNames(path):
+   fileNames = []
+
+   for ext in video_extensions:
+      files = glob.glob("*." + ext, root_dir=path)
+
+      for file in files:
+         fileNames += [file]
+
+   return fileNames
+
+############################################################
 ## Edits one video
 ############################################################
 def edit_video(name, name_out):
-   cmd = [
-        ["-q", ""]
-      , ["-c:v", "hevc_nvenc" ]
-      , ["-b:v", "100M" ]
-      , ["-b:a", "10M" ]
-      , ["--no-open", ""]
-      , ["--edit", "(or audio:stream=0 audio:threshold=-6dB, audio:stream=1)"]
-      , ["--margin", "0.6s,0.7sec"]
-      , ["-o", name_out]
-   ]
+   global ae_cmd
 
-   run(["auto-editor" + name] + cmd)
+   ae_cmd += ["-o", name_out]
+
+   print("Calling: ", ["auto-editor", name] + ae_cmd)
+   run(["auto-editor", name] + ae_cmd)
 
    return
 
@@ -94,6 +104,29 @@ def auto_edit(input_folder, output_folder):
    
    n_files = count_files(input_folder)
    print("There are " + str(n_files) + " in input folder: " + input_folder)
+
+   fileNames = get_fileNames(input_folder)
+   for file in fileNames:
+      file_path_in = input_folder + '/' + file
+      name, ext = os.path.splitext(file)
+      file_path_out = output_folder + '/' + name + out_string + ext
+
+      edit_video(file_path_in, file_path_out)
+   
+   return
+
+############################################################
+## Main function
+############################################################
+def auto_editor_arg_parser(args):
+   global ae_cmd
+
+   print("Prev")
+   print(ae_cmd)
+   ae_cmd = args
+   
+   print("Post")
+   print(ae_cmd)
    
    return
 
@@ -101,27 +134,23 @@ def auto_edit(input_folder, output_folder):
 ## Main function
 ############################################################
 def main():
-   out_string = "_out"
-   input_folder = "folder"
-   output_folder = input_folder + out_string
+   # Create argument parser
+   parser = argparse.ArgumentParser(
+      description="Auto cutter python script, used to call auto-editor in a folder."
+      , formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-   parser = argparse.ArgumentParser(description="Auto cutter python script, used to call auto-editor in a folder.")
+   # Create parameters
+   parser.add_argument("video", nargs='?', help="Input video or playlist to edit/download", default=None)
+   parser.add_argument("-f", "--folder", nargs='?', help="Folder to work with", default="folder")
+   parser.add_argument("-ae", "--auto_editor_args", nargs='+', help="Arguments to pass to auto-editor.  Use quotes to group multiple arguments, e.g., '-q --no-open'", default=ae_cmd)
 
-   parser.add_argument("-i", "--input_folder", nargs="?", help="Input Auto-Editor Folder", default=input_folder)
-   parser.add_argument("-o", "--output_folder", nargs="?", help="Output Auto-Editor Folder", default=output_folder)
-
+   # Parse arguments
    args = parser.parse_args()
-   input_folder = args.input_folder
+   input_folder = args.folder
+   output_folder = input_folder + out_string
+   auto_editor_arg_parser(args.auto_editor_args)
    
-   if args.output_folder is not None:
-      output_folder = args.output_folder
-   else:
-      output_folder = input_folder + out_string
-
-   print("Input: " + input_folder)
-   print("Output: " + output_folder)
-   
-   auto_edit(input_folder=input_folder, output_folder=output_folder)
+   # auto_edit(input_folder=input_folder, output_folder=output_folder)
 
    return
 
