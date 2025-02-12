@@ -45,11 +45,11 @@
 # Imports
 import os
 import glob
-import yt_dlp # Just checks if yt-dlp is installed
 import argparse
 import auto_editor # Just checks if auto-editor is installed
 from pathlib import Path
 from subprocess import run
+from yt_dlp import YoutubeDL
 
 ##########################################################################################
 ## Variables
@@ -58,7 +58,6 @@ video_extensions = ["mkv", "mp4"] # Extend!
 default_folder="folder"
 out_string = "_out"
 ae_cmd = ["-q", "--no-open", "-c:v", "auto", "-b:v", "10M", "-b:a", "10M"]
-yt_cmd = ["-q", "-f", "bv[ext=mp4]+ba[ext=mp4]"]
 
 ##########################################################################################
 ## Counts files in path with video_extensions extensions
@@ -108,13 +107,27 @@ def create_path(path):
 ##########################################################################################
 ## Calls a subprocess to call yt-dlp with some parameters
 ##########################################################################################
-def call_yt_dlp(video, output_folder):
-   global yt_cmd
-   
+def call_yt_dlp(video, output_folder):   
    create_path(output_folder)
 
-   # print("Calling: ", ["yt-dlp", video] + yt_cmd)
-   run(["yt-dlp", video] + yt_cmd, cwd=output_folder)
+   # Used https://github.com/yt-dlp/yt-dlp/blob/master/devscripts/cli_to_api.py
+   # TODO: Integrate this script to add yt-dlp params
+   yt_opts = {
+      'extract_flat': 'discard_in_playlist',
+      'format': 'bv[ext=mp4]+ba[ext=mp4]',
+      'fragment_retries': 5,
+      'ignoreerrors': 'only_download',
+      'noprogress': True,
+      'outtmpl': { 'default': output_folder + '/%(title)s.%(ext)s' },
+      'postprocessors': [{'key': 'FFmpegConcat',
+                           'only_multi_video': True,
+                           'when': 'playlist'}],
+      'quiet': True,
+      'retries': 5
+   }
+
+   with YoutubeDL(yt_opts) as ydl:
+      _ = ydl.download(video)
 
    return
 
@@ -227,6 +240,7 @@ def main():
    
    if video is not None:
       if video.startswith(("https:", "http:", "www")):
+         print("Downloading videos, this could be long...")
          call_yt_dlp(video, input_folder)
          edit_folder(input_folder, output_folder)
       else:
