@@ -41,6 +41,9 @@
 #     yt-dlp -f ba[ext=mp4] -x --audio-format mp3 <VIDEO_URL>
 # Small video for testing
 #     https://www.youtube.com/watch?v=P38h4lQNJPQ
+# Quote flag
+#     auto-editor https://youtu.be/nnmZC7DN_EA --yt-dlp-extras "-q"
+
 
 # Imports
 import os
@@ -57,7 +60,8 @@ from yt_dlp import YoutubeDL
 video_extensions = ["mkv", "mp4"] # Extend!
 default_folder="folder"
 out_string = "_out"
-ae_cmd = ["-q", "--no-open", "-c:v", "auto", "-b:v", "10M", "-b:a", "10M"]
+ae_cmd = ["--no-open", "-c:v", "hevc_nvenc", "-b:v", "10M", "-b:a", "10M", "--margin", "0.6s,0.7sec"]
+quiet_mode=False
 
 ##########################################################################################
 ## Counts files in path with video_extensions extensions
@@ -77,18 +81,18 @@ def count_files(path):
 ##########################################################################################
 ## Get's all files from path with video_extension extensions
 ##
-## \return fileNames : List of file names containing those extensions
+## \return file_names : List of file names containing those extensions
 ##########################################################################################
-def get_fileNames(path):
-   fileNames = []
+def get_file_names(path):
+   file_names = []
 
    for ext in video_extensions:
       files = glob.glob("*." + ext, root_dir=path)
 
       for file in files:
-         fileNames += [file]
+         file_names += [file]
 
-   return fileNames
+   return file_names
 
 
 
@@ -107,22 +111,24 @@ def create_path(path):
 ##########################################################################################
 ## Calls a subprocess to call yt-dlp with some parameters
 ##########################################################################################
-def call_yt_dlp(video, output_folder):   
+def call_yt_dlp(video, output_folder): 
+   global quiet_mode
+
    create_path(output_folder)
 
    # Used https://github.com/yt-dlp/yt-dlp/blob/master/devscripts/cli_to_api.py
    # TODO: Integrate this script to add yt-dlp params
    yt_opts = {
       'extract_flat': 'discard_in_playlist',
-      'format': 'bv[ext=mp4]+ba[ext=mp4]',
+      'format': 'bv[ext=mp4]+ba[ext=mp4]', # Enabled best video/audio format for mp4
       'fragment_retries': 5,
       'ignoreerrors': 'only_download',
-      'noprogress': True,
+      'noprogress': quiet_mode,
       'outtmpl': { 'default': output_folder + '/%(title)s.%(ext)s' },
       'postprocessors': [{'key': 'FFmpegConcat',
                            'only_multi_video': True,
                            'when': 'playlist'}],
-      'quiet': True,
+      'quiet': quiet_mode,
       'retries': 5
    }
 
@@ -138,11 +144,17 @@ def call_yt_dlp(video, output_folder):
 ##########################################################################################
 def call_auto_editor(name, name_out):
    global ae_cmd
+   global quiet_mode
 
-   ae_cmd += ["-o", name_out]
+   cmd = [name]
+   cmd.extend(["-o", name_out])
+   cmd.extend(ae_cmd)
 
-   # print("Calling: ", ["auto-editor", name] + ae_cmd)
-   run(["auto-editor", name] + ae_cmd)
+   if quiet_mode:
+      cmd.extend(["-q"])
+
+   # print("Calling: ", ["auto-editor"] + cmd)
+   run(["auto-editor"] + cmd)
 
    return
 
@@ -167,8 +179,8 @@ def get_editor_file_names(original_name):
 ##########################################################################################
 ## Calls auto-editor with only one file
 ##########################################################################################
-def edit_video(fileName):
-   in_file, out_file = get_editor_file_names(fileName)
+def edit_video(file_name):
+   in_file, out_file = get_editor_file_names(file_name)
    call_auto_editor(in_file, out_file)
 
    return
@@ -184,30 +196,18 @@ def edit_folder(input_folder, output_folder):
    n_files = count_files(input_folder)
    print("There are " + str(n_files) + " in input folder: " + input_folder)
 
-   fileNames = get_fileNames(input_folder)
-   for file in fileNames:
+   file_names = get_file_names(input_folder)
+   n_file = 1
+   for file in file_names:
       in_file, out_file = get_editor_file_names(file)
+
+      print("File " + str(n_file) + "/" + str(n_files) + "\tName: " + file)
+
       file_path_in = input_folder + '/' + in_file
       file_path_out = output_folder + '/' + out_file
 
       call_auto_editor(file_path_in, file_path_out)
-   
-   return
-
-
-
-##########################################################################################
-## TODO
-##########################################################################################
-def auto_editor_arg_parser(args):
-   global ae_cmd
-
-   print("Prev")
-   print(ae_cmd)
-   ae_cmd = args
-   
-   print("Post")
-   print(ae_cmd)
+      n_file += 1
    
    return
 
@@ -216,28 +216,7 @@ def auto_editor_arg_parser(args):
 ##########################################################################################
 ## Main function
 ##########################################################################################
-def main():
-   # Create argument parser
-   parser = argparse.ArgumentParser(
-      description="Auto cutter python script, used to call auto-editor in a folder."
-      )
-
-   # Create parameters
-   parser.add_argument("video", nargs='?', help="Input video or playlist to edit/download", default=None)
-   parser.add_argument("-f", "--folder", nargs='?', help="Folder to work with", default=None)
-   # parser.add_argument("-ae", "--auto_editor_args", nargs='+', help="Arguments to pass to auto-editor.  Use quotes to group multiple arguments, e.g., '-q --no-open'", default=ae_cmd)
-
-   # Parse arguments
-   args = parser.parse_args()
-   input_folder = args.folder
-   if input_folder is None:
-      input_folder = default_folder
-   output_folder = input_folder + out_string
-   video = args.video
-   # auto_editor_arg_parser(args.auto_editor_args)
-
-   print("We currently support [" + ", ".join(video_extensions) + "] video extensions, skipping others!")
-   
+def process_video(input_folder, output_folder, video=None):
    if video is not None:
       if video.startswith(("https:", "http:", "www")):
          print("Downloading videos, this could be long...")
@@ -247,6 +226,40 @@ def main():
          edit_video(video)
    else:
       edit_folder(input_folder, output_folder)
+
+   return
+
+
+
+##########################################################################################
+## Main function
+##########################################################################################
+def main():
+   global quiet_mode
+
+   # Create argument parser
+   parser = argparse.ArgumentParser(
+      description="Auto cutter python script, used to call auto-editor in a folder."
+      )
+
+   # Create parameters
+   parser.add_argument("video", nargs='?', help="Input video or playlist to edit/download", default=None)
+   parser.add_argument("-f", "--folder", nargs='?', help="Folder to work with", default=None)
+   parser.add_argument("-q", "--quiet", action="store_true", help="Enables quiet mode for yt_dlp and auto-editor", default=False)
+
+   # Parse arguments
+   args = parser.parse_args()
+
+   # First, global parameters
+   quiet_mode = args.quiet
+
+   # Then, other parameters.
+   input_folder = args.folder
+   if input_folder is None:
+      input_folder = default_folder
+
+   print("We currently support [" + ", ".join(video_extensions) + "] video extensions, skipping others!")
+   process_video(input_folder, input_folder + out_string, args.video)
 
    return
 

@@ -4,7 +4,7 @@ This is a script I use to automate the use of `auto-editor`, as I was a bit tire
 ## Usage
 ``` bash
 $ python auto-cutter.py -h
-usage: auto-cutter.py [-h] [-f [FOLDER]] [video]
+usage: auto-cutter.py [-h] [-f [FOLDER]] [-q QUIET] [video]
 
 Auto cutter python script, used to call auto-editor in a folder.
 
@@ -13,8 +13,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -f [FOLDER], --folder [FOLDER]
+  -f, --folder [FOLDER]
                         Folder to work with
+  -q, --quiet QUIET     Enables quiet mode for yt_dlp and auto-editor
 ```
 
 ### Options
@@ -33,14 +34,24 @@ Currently, we are working with some dependencies, those are:
 # Tested on
 - [x] Arch Linux WSL (x86_64) `Linux xxxxx 5.15.167.4-microsoft-standard-WSL2`
 - [x] Ubuntu 24.04.1 LTS  (x86_64) `Linux xxxxx 5.15.167.4-microsoft-standard-WSL2`
-- [ ] Windows 10/11 Terminal (x86_64)
+- [x] Windows 10/11 Terminal (x86_64)
 
 # TODO
 - [x] Automatize yt-dlp download to the folder and use it as input.
 - [x] Allow a single video input.
 - [ ] Add a script parameter to parametrice `auto-editor` (currently parameters are hardcoded).
-- [ ] Add a script parameter to parametrice `yt-dlp` (currently parameters are hardcoded).
+- [ ] ~~Add a script parameter to parametrice `yt-dlp` (currently parameters are hardcoded).~~
+- [ ] Move `auto-editor` from `subprocess.run()` to python calls.
+- [x] Move `yt-dlp` from `subprocess.run()` to python calls.
+- [ ] Add a verbose option
+- [ ] Add a quiet version that mutes all messages from this script
+- [ ] Enable colors
+- [ ] Add an option to download audio.
+- [ ] Add an option to transcribe audio.
 
+# Troubleshooting
+### OSError: [Errno 28] No space left on device in WSL
+I got this error while executing a very long video with `auto-editor` I could not open an [Discussion](https://github.com/WyattBlue/auto-editor/discussions) but as far as I investigated, it could be solved with: `TMPDIR=<enought_space> && python auto-cutter.py` (or in defect, calling `auto-editor`)
 
 # Get in Touch
 If you want to get in touch with me, here are my social networks
